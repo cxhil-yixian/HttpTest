@@ -21,7 +21,8 @@ from urllib.parse import urlparse
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from busters.browser import make_driver   # noqa: E402
+from busters.browser import make_driver                              # noqa: E402
+from busters.itdog.challenge import CLICK_REQUIRED, READY, detect    # noqa: E402
 
 OUT_DIR = Path(__file__).resolve().parent / "probes"
 
@@ -66,7 +67,9 @@ return {
 };
 """
 
-CHALLENGED = "return !!document.querySelector('[name=cf-turnstile-response]');"
+# 判斷是否還被擋住一律交給 busters.itdog.challenge.detect()——
+# 不要在這裡自己看 cf-turnstile-response，那個 input 是動態插入的，
+# 驗證重試時會消失，會在還被擋著的時候誤判成「已通過」。
 
 
 def slug(url: str) -> str:
@@ -91,23 +94,27 @@ def main() -> None:
         print(f"已開啟 {args.url}", flush=True)
 
         deadline = time.time() + args.wait
-        announced = False
+        announced = set()
+        passed = False
+
         while time.time() < deadline:
-            challenged = driver.execute_script(CHALLENGED)
-            ready = (driver.execute_script(
-                "return !!document.querySelector(arguments[0]);", args.ready)
-                if args.ready else not challenged)
-            if ready:
-                print("頁面就緒", flush=True)
+            s = detect(driver, args.ready)
+
+            # 有給 selector 就等它出現；沒給就等所有驗證標記消失
+            if (s["state"] == READY) if args.ready else (not s["challenged"]):
+                passed = True
+                print(f"頁面就緒（state={s['state']}）", flush=True)
                 break
-            if challenged and not announced:
-                announced = True
-                print("\n⚠ 出現 Cloudflare 人機驗證。"
-                      "\n  請到瀏覽器視窗點一下「我不是機器人」，"
-                      f"\n  本工具會自動偵測並繼續（最多等 {args.wait} 秒）。\n", flush=True)
+
+            if s["state"] not in announced:
+                announced.add(s["state"])
+                if s["state"] == CLICK_REQUIRED:
+                    print("\n⚠ 瀏覽器視窗上出現了「驗證您是人類」的核取方塊，請點一下。"
+                          f"\n  本工具會自動偵測並繼續（最多等 {args.wait} 秒）。\n",
+                          flush=True)
+                else:
+                    print(f"  狀態：{s['state']}（標題 {s['title'][:20]!r}）", flush=True)
             time.sleep(2)
-        else:
-            print("等待逾時，仍然抓不到頁面內容", flush=True)
 
         data = driver.execute_script(DUMP)
         name = slug(args.url)
@@ -115,12 +122,22 @@ def main() -> None:
             json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         (OUT_DIR / f"{name}.html").write_text(driver.page_source, encoding="utf-8")
 
+        empty = not (data["inputs"] or data["buttons"] or data["tables"])
+        final = detect(driver, args.ready)
+
         print(f"\n標題: {data['title']}")
-        print(f"仍被驗證擋住: {data['stillChallenged']}")
+        print(f"驗證狀態: {final['state']}（cfOpt={final['cfOpt']} "
+              f"widget={final['widget']} errText={final['errText']}）")
         print(f"jQuery: {data['hasJQuery']}")
         print(f"輸入元素: {len(data['inputs'])}  下拉選單: {len(data['selects'])}  "
               f"按鈕: {len(data['buttons'])}  表格: {len(data['tables'])}")
-        print(f"\n已寫入 {OUT_DIR / (name + '.json')}")
+
+        if not passed or empty or final["challenged"]:
+            print("\n❌ 抓到的不是目標頁面，而是 Cloudflare 攔截頁——這份結果沒有用。")
+            print("   請重跑，並在核取方塊出現時到瀏覽器視窗點一下。")
+            print(f"   （原始碼仍存在 {OUT_DIR / (name + '.html')} 供除錯）")
+        else:
+            print(f"\n✅ 已寫入 {OUT_DIR / (name + '.json')}")
     finally:
         driver.quit()
 

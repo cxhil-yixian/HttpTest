@@ -1,0 +1,17 @@
+{
+  "buttons": [],
+  "hasJQuery": false,
+  "inputs": [
+    {
+      "id": "cf-chl-widget-67j5w_response",
+      "name": "cf-turnstile-response",
+      "tag": "input",
+      "type": "hidden"
+    }
+  ],
+  "selects": [],
+  "stillChallenged": true,
+  "tables": [],
+  "title": "請稍候...",
+  "url": "https://www.itdog.cn/http/"
+}
