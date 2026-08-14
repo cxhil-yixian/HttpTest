@@ -10,7 +10,7 @@ config.yaml 放結構性常數（節點、欄位、等待秒數），
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import yaml
 from dotenv import load_dotenv
@@ -57,10 +57,14 @@ class Node:
 
 @dataclass(frozen=True)
 class ItdogConfig:
-    url: str
+    """itdog.cn。節點固定，由設定檔指定 ID。"""
+
+    batch_url: str
+    single_url: str
     ip_split_count: int
     test_wait_time: int
     headless: bool
+    challenge_wait: int
     nodes: Tuple[Node, ...]
 
     @property
@@ -70,6 +74,21 @@ class ItdogConfig:
     @property
     def node_names(self) -> List[str]:
         return [n.name for n in self.nodes]
+
+
+@dataclass(frozen=True)
+class TcptestConfig:
+    """tcptest.cn。節點由網站隨機分配，只能從結果表頭讀回，故此處無節點清單。"""
+
+    batch_url: str
+    single_url: str
+    ip_split_count: int
+    test_wait_time: int
+    headless: bool
+    ports: Dict[str, int]
+
+    def port_for(self, protocol: str) -> int:
+        return int(self.ports.get(protocol, 80))
 
 
 @dataclass(frozen=True)
@@ -123,10 +142,16 @@ class Paths:
     log_dir: Path
     excel_file: Path
 
+    def single_report(self, target: str) -> Path:
+        """單站測試的獨立報表路徑。網址中不能當檔名的字元一律換成底線。"""
+        safe = "".join(c if c.isalnum() or c in "-._" else "_" for c in target)
+        return self.project_dir / "data" / f"single_{safe}.xlsx"
+
 
 @dataclass(frozen=True)
 class AppConfig:
     itdog: ItdogConfig
+    tcptest: TcptestConfig
     layout: ReportLayout
     clear_logs_before_run: bool
     sheets: SheetsConfig
@@ -157,11 +182,23 @@ def load_config(project_dir) -> AppConfig:
         raise ValueError("config.yaml 的 itdog.nodes 是空的")
 
     itdog = ItdogConfig(
-        url=itdog_raw.get("url", "https://www.itdog.cn/batch_http/"),
+        batch_url=itdog_raw.get("batch_url", "https://www.itdog.cn/batch_http/"),
+        single_url=itdog_raw.get("single_url", "https://www.itdog.cn/http/"),
         ip_split_count=int(itdog_raw.get("ip_split_count", 250)),
         test_wait_time=int(itdog_raw.get("test_wait_time", 60)),
         headless=bool(itdog_raw.get("headless", False)),
+        challenge_wait=int(itdog_raw.get("challenge_wait", 180)),
         nodes=nodes,
+    )
+
+    tcptest_raw = raw.get("tcptest", {})
+    tcptest = TcptestConfig(
+        batch_url=tcptest_raw.get("batch_url", "https://www.tcptest.cn/batch-tcping"),
+        single_url=tcptest_raw.get("single_url", "https://www.tcptest.cn/http"),
+        ip_split_count=int(tcptest_raw.get("ip_split_count", 256)),
+        test_wait_time=int(tcptest_raw.get("test_wait_time", 120)),
+        headless=bool(tcptest_raw.get("headless", False)),
+        ports={k: int(v) for k, v in (tcptest_raw.get("ports") or {"http": 80, "https": 443}).items()},
     )
 
     data_raw = raw.get("data", {})
@@ -200,6 +237,7 @@ def load_config(project_dir) -> AppConfig:
 
     return AppConfig(
         itdog=itdog,
+        tcptest=tcptest,
         layout=layout,
         clear_logs_before_run=bool(data_raw.get("clear_logs_before_run", True)),
         sheets=sheets,

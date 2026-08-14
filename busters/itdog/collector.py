@@ -8,17 +8,15 @@ import json
 import time
 from typing import List, Sequence
 
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
 
+from ..browser import make_driver
 from ..config import ItdogConfig
 from ..data.records import HTTPS, ResultRecord
+from .challenge import require_form
 from .parser import parse_results
 
-PAGE_LOAD_WAIT = 2      # 開頁後等待秒數
+FORM_READY = "#host"    # 表單載入完成的判斷依據
 OPTIONS_OPEN_WAIT = 1   # 展開節點選單後等待秒數
 
 
@@ -29,28 +27,22 @@ def build_targets(ips: Sequence[str], protocol: str) -> List[str]:
     return list(ips)
 
 
-def _chrome_options(cfg: ItdogConfig) -> Options:
-    options = Options()
-    if cfg.headless:
-        options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    return options
-
-
-def run_batch(ips: Sequence[str], protocol: str, cfg: ItdogConfig) -> List[ResultRecord]:
+def run_batch(ips: Sequence[str], protocol: str, cfg: ItdogConfig,
+              verbose: bool = True) -> List[ResultRecord]:
     """送出一批 IP 到 itdog.cn，等待固定秒數後解析結果。
 
-    注意：等待是固定 cfg.test_wait_time 秒而非輪詢完成狀態，
+    開頁後會先等 Cloudflare 人機驗證通過（需要你手動點一下），
+    偵測到表單才繼續。
+
+    注意：測試等待是固定 cfg.test_wait_time 秒而非輪詢完成狀態，
     IP 數量接近上限時可能在測試跑完前就抓頁面。
     """
     targets = build_targets(ips, protocol)
 
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=_chrome_options(cfg))
+    driver = make_driver(cfg.headless)
     try:
-        driver.get(cfg.url)
-        time.sleep(PAGE_LOAD_WAIT)
+        driver.get(cfg.batch_url)
+        require_form(driver, FORM_READY, cfg.challenge_wait, cfg.batch_url, verbose)
 
         textarea = driver.find_element(By.ID, "host")
         textarea.clear()

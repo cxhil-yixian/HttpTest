@@ -3,9 +3,17 @@
 # 只放「結構性常數」——會隨部署變動或含機密的項目請放 .env
 # ============================================================
 
-# ---------- ITDOG 模組（itdog.cn 批量測試）----------
+# ============================================================
+# 兩種測試模式
+#   single : 單站測試——一個網址，看各節點的詳細指標
+#   batch  : 批量測試——一批 IP，看每個 IP 在各節點的狀態
+# 兩個來源（itdog / tcptest）各自實作這兩種模式。
+# ============================================================
+
+# ---------- ITDOG 模組（itdog.cn）----------
 itdog:
-  url: "https://www.itdog.cn/batch_http/"
+  batch_url: "https://www.itdog.cn/batch_http/"
+  single_url: "https://www.itdog.cn/http/"
 
   # 每批送出的 IP 數量（ITDOG 網站限制）
   ip_split_count: 250
@@ -14,7 +22,12 @@ itdog:
   test_wait_time: 60
 
   # 是否以無頭模式跑 Chrome（排程執行時可設 true）
+  # 注意：itdog.cn 有 Cloudflare 人機驗證，無頭模式幾乎必定卡關。
   headless: false
+
+  # itdog.cn 會出現 Cloudflare「我不是機器人」驗證，需要人工點一下。
+  # 腳本會開著瀏覽器等你點完、偵測到表單出現才繼續。
+  challenge_wait: 180   # 等待人工通過驗證的上限秒數
 
   # 測試節點。順序 = Excel 欄位順序，改這裡即可增減節點。
   #   id    : ITDOG 網站的節點 ID（送進 select.node_select）
@@ -26,6 +39,29 @@ itdog:
     - { id: "1233", name: "浙江杭州移动", label: "浙江移" }
     - { id: "1246", name: "河南郑州移动", label: "河南移" }
     - { id: "1287", name: "湖北武汉移动", label: "湖北移" }
+
+# ---------- TCPTEST 模組（tcptest.cn）----------
+tcptest:
+  batch_url: "https://www.tcptest.cn/batch-tcping"
+  single_url: "https://www.tcptest.cn/http"
+
+  # 網站上限 256 個目標／1 萬字元
+  ip_split_count: 256
+
+  # 送出後最多等多久（秒）；提早測完就提早結束，不會空等
+  test_wait_time: 120
+
+  headless: false
+
+  # 批量模式是 TCPing（測端口通不通與延遲），必須指定端口。
+  # 沿用舊流程的節奏：同一批目標跑兩輪，分別對應 HTTP 與 HTTPS。
+  ports:
+    http: 80
+    https: 443
+
+  # tcptest 每次測試的節點是隨機分配的（例如這次「浙江宁波 电信」、
+  # 下次「江西南昌 联通」），所以節點名稱一律從結果表頭即時讀取，
+  # 不像 itdog 那樣寫死在設定裡。
 
 # ---------- DATA 模組（檔案通道與報表排版）----------
 data:

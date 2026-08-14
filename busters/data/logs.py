@@ -7,7 +7,7 @@
 from pathlib import Path
 from typing import Iterable, List
 
-from .records import HTTP, HTTPS, ResultRecord, strip_scheme
+from .records import HTTP, HTTPS, ResultRecord, bare_ip
 
 
 def log_filename(group_name: str, protocol: str) -> str:
@@ -64,16 +64,36 @@ def read_logs(log_dir) -> List[ResultRecord]:
         protocol = protocol_of(path.name)
         if not protocol:
             continue
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8-sig") as f:
             for line in f:
-                parts = line.strip().split(" ")
-                if len(parts) < 3:
-                    continue
-                records.append(ResultRecord(
-                    ip=strip_scheme(parts[0]),
-                    node=parts[1],
-                    status=parts[2],
-                    protocol=protocol,
-                    target=parts[0],
-                ))
+                parsed = parse_line(line, protocol)
+                if parsed:
+                    records.append(parsed)
     return records
+
+
+def parse_line(line: str, protocol: str):
+    """解析一行 log：第一段是 target，最後一段是 status，中間全是節點名。
+
+    不能直接 split(' ')[1] 當節點——tcptest 的節點名帶空格（「湖北襄阳 电信」），
+    那樣會把節點切一半、把運營商當成狀態。itdog 的單字節點名結果不變。
+    """
+    line = line.strip()
+    if not line:
+        return None
+
+    target, sep, rest = line.partition(" ")
+    if not sep:
+        return None
+
+    node, sep2, status = rest.rpartition(" ")
+    if not sep2 or not node or not status:
+        return None
+
+    return ResultRecord(
+        ip=bare_ip(target),
+        node=node,
+        status=status,
+        protocol=protocol,
+        target=target,
+    )

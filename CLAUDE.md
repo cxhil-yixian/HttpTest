@@ -31,17 +31,17 @@ schtasks /delete /tn "ITDOG批量測試" /f
 
 ## Architecture
 
-三個模組，全部放在共用套件 `busters/` 下。分界的核心規則：
+模組全部放在共用套件 `busters/` 下。分界的核心規則：
 
 - **ITDOG** (`busters/itdog/`) — 唯一知道 itdog.cn 的地方。`collector.py` 碰瀏覽器，
-  `parser.py` 是純函式（HTML → `ResultRecord`），可以存一份 page_source 下來離線驗證。
-  對外只暴露「一批 IP + 協議 → `ResultRecord` 清單」。
+  `challenge.py` 處理 Cloudflare 人機驗證，`parser.py` 是純函式（HTML → `ResultRecord`）。
+- **TCPTEST** (`busters/tcptest/`) — 唯一知道 tcptest.cn 的地方。`batch.py` 是批量
+  TCPing、`single.py` 是單站測速、`parser.py` 純函式。
 - **DATA** (`busters/data/`) — 檔案通道與報表排版。**不含任何網站知識。**
-  排版知識（哪欄放 IP、HTTP 從哪欄開始）集中在 `report.py`。
 - **GOOGLE** (`busters/google/`) — Sheets 讀寫。**不含任何網站知識，也不知道欄位怎麼排。**
   只認「欄位字母 + 起始列 + 二維陣列」，資料由 DATA 排好後送進來。
 
-新增測試來源（例如 tcptest.cn）時只需新增 `busters/tcptest/`，DATA 與 GOOGLE 不動。
+再接第四個來源時只需新增 `busters/<來源>/`，DATA 與 GOOGLE 不動。
 
 ### 資料流
 
@@ -55,12 +55,27 @@ Sheets ──google──> CDN_IP_list.txt ──itdog──> logs/*.txt ──d
 
 ### 關鍵不變式
 
-- `logs/*.txt` 格式為「target 節點名 狀態」，HTTPS 的 target 帶 `https://` 前綴。
-  `ResultRecord.target` 保留原始字串就是為了維持這個格式。
+踩過的坑，改動前先讀：
+
+- `logs/*.txt` 格式為「target 節點名 狀態」。解析時**第一段是 target、最後一段是
+  status、中間全是節點名**——不能寫 `split(' ')[1]`，tcptest 的節點名帶空格
+  （「湖北襄阳 电信」），那樣會把運營商當成狀態。
+- itdog 的 HTTPS log target 帶 `https://` 前綴，tcptest 的 target 帶 `:port` 後綴。
+  `ResultRecord.ip` 一律是去掉兩者的純 IP（`bare_ip()`），報表比對只用它。
+- 讀 IP 清單與 log 一律用 **utf-8-sig**。記事本、Excel、PowerShell 的 `Out-File`
+  都會寫 BOM，用 utf-8 讀會讓第一個 IP 變成 `﻿1.2.3.4`，送到測試網站直接失效。
+- **tcptest 兩個頁面在還沒測之前就顯示一整張示範結果表。** 完成判斷必須確認
+  表格內容是我們送出的目標（批量比對第一列、單站比對內容指紋），只看「數值不再
+  變動」會立刻被示範資料騙過去。確認不到要報錯，不要寫入假資料。
+- **tcptest 是 React SPA**，值要用 `send_keys` 這種真實事件寫入。原生 setter 寫得進
+  DOM 但元件未掛載時 React state 不會更新，表單看起來有值、送出去是空的。
+  `driver.implicitly_wait()` 不是 sleep，別拿它當等待。
 - 報表列順序依 `CDN_IP_list.txt` 的 IP 順序，且只輸出有測到結果的 IP——
   回寫 Sheets 時列號要對得上原本的 IP 欄。
-- `config.yaml` 的 `itdog.nodes` 順序 = 報表欄位順序。增減節點只改這裡，
-  `ReportLayout.width` 會自動跟著算。
+- itdog 的節點固定在 `config.yaml`，順序 = 報表欄位順序。
+  **tcptest 的節點每次隨機**，只能從結果表頭讀回，所以走
+  `generate_dynamic_report()`（HTTP 與 HTTPS 兩區塊各自算欄位）而非
+  `generate_report()`。
 
 ## Configuration
 

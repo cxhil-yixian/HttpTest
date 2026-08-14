@@ -5,11 +5,15 @@ from typing import Iterable, List
 
 
 def read_ips(path) -> List[str]:
-    """讀取 IP 清單，一行一個，略過空行。"""
+    """讀取 IP 清單，一行一個，略過空行。
+
+    用 utf-8-sig 開檔：記事本、Excel、PowerShell 的 Out-File 都會在檔頭寫 BOM，
+    照 utf-8 讀會讓第一個 IP 變成 '﻿1.2.3.4'，送到測試網站直接失效。
+    """
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"找不到 IP 清單: {path}")
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8-sig") as f:
         return [line.strip() for line in f if line.strip()]
 
 
