@@ -1,0 +1,9 @@
+selenium
+webdriver-manager
+beautifulsoup4
+pandas
+openpyxl
+gspread
+google-auth
+pyyaml
+python-dotenv

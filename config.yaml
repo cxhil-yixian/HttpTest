@@ -1,0 +1,50 @@
+# ============================================================
+# HttpTest 共用設定
+# 只放「結構性常數」——會隨部署變動或含機密的項目請放 .env
+# ============================================================
+
+# ---------- ITDOG 模組（itdog.cn 批量測試）----------
+itdog:
+  url: "https://www.itdog.cn/batch_http/"
+
+  # 每批送出的 IP 數量（ITDOG 網站限制）
+  ip_split_count: 250
+
+  # 點下測試後固定等待秒數
+  test_wait_time: 60
+
+  # 是否以無頭模式跑 Chrome（排程執行時可設 true）
+  headless: false
+
+  # 測試節點。順序 = Excel 欄位順序，改這裡即可增減節點。
+  #   id    : ITDOG 網站的節點 ID（送進 select.node_select）
+  #   name  : ITDOG 回傳的節點名稱，也是寫進 logs/*.txt 的名稱
+  #   label : Excel / Sheets 表頭用的簡稱
+  nodes:
+    - { id: "1214", name: "湖北武汉电信", label: "湖北電" }
+    - { id: "1276", name: "湖北武汉联通", label: "湖北聯" }
+    - { id: "1233", name: "浙江杭州移动", label: "浙江移" }
+    - { id: "1246", name: "河南郑州移动", label: "河南移" }
+    - { id: "1287", name: "湖北武汉移动", label: "湖北移" }
+
+# ---------- DATA 模組（檔案通道與報表排版）----------
+data:
+  # 開跑前是否清掉 logs/ 內既有的 *.txt。
+  # 設 false 會沿用舊行為：上一輪殘留的 log 也會被算進這次報表。
+  clear_logs_before_run: true
+
+  # Excel 報表欄位配置（節點依 itdog.nodes 順序往右展開）
+  report:
+    ip_column: "C"            # 節點 IP
+    http_start_column: "D"    # HTTP 結果起始欄 → D~H
+    https_start_column: "L"   # HTTPS 結果起始欄 → L~P
+
+# ---------- GOOGLE 模組（Google Sheets 讀寫）----------
+google:
+  # 讀取 IP 的欄位與起始列
+  ip_column: "C"
+  start_row: 4
+
+  # 回寫結果的起始欄（列沿用 start_row，欄數由節點數決定）
+  http_start_column: "D"
+  https_start_column: "L"

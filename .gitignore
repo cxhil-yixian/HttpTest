@@ -1,0 +1,31 @@
+# 機密與部署設定
+.env
+service_account.json
+
+# Python
+__pycache__/
+*.py[codz]
+*$py.class
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# 虛擬環境
+.venv/
+venv/
+env/
+ENV/
+
+# 測試與快取
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 編輯器與工具
+.idea/
+.vscode/
+.claude/settings.local.json
