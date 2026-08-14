@@ -18,7 +18,7 @@
 DATA 與 GOOGLE 完全不含網站知識，之後接 tcptest.cn 時只需新增 `busters/tcptest/`。
 
 ```
-httptest/
+HttpTest/
 ├── config.yaml             # 結構性常數（節點、欄位、等待秒數）
 ├── .env                    # 部署設定與機密（Sheet ID、gid、憑證路徑）— 不進版控
 ├── service_account.json    # Google 憑證 — 不進版控，需自行放置
@@ -124,7 +124,7 @@ python run_all.py test upload  # 指定執行其中幾步
 
 ```batch
 :: 建立每日 09:10 執行（需系統管理員身份）
-schtasks /create /tn "ITDOG批量測試" /tr "cmd /c \"E:\Github\httptest\ITDOG-busters\start.bat\"" /sc daily /st 09:10 /f
+schtasks /create /tn "ITDOG批量測試" /tr "cmd /c \"E:\Github\HttpTest\ITDOG-busters\start.bat\"" /sc daily /st 09:10 /f
 
 schtasks /run    /tn "ITDOG批量測試"        :: 手動執行一次
 schtasks /query  /tn "ITDOG批量測試"        :: 查看狀態
