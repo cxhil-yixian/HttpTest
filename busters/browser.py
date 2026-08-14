@@ -6,6 +6,7 @@ tcptest.cn 是 React SPA——沒有 id、沒有 name、沒有 jQuery，
 """
 
 import time
+from pathlib import Path
 from typing import Callable, List, Optional
 
 from selenium import webdriver
@@ -26,13 +27,27 @@ el.dispatchEvent(new Event('change', {bubbles: true}));
 """
 
 
-def make_driver(headless: bool = False, window: str = "1500,1100") -> webdriver.Chrome:
+def make_driver(headless: bool = False, window: str = "1500,1100",
+                profile_dir=None) -> webdriver.Chrome:
+    """建立 Chrome。
+
+    profile_dir: 指定後會用這個目錄當瀏覽器設定檔，cookie 與 session 跨次保留。
+    預設每次都是全新的拋棄式設定檔，代表上一次通過的人機驗證不會被記住，
+    每跑一次就得重驗一次。用專屬目錄（不是你平常那個 Chrome 設定檔）可以
+    避免佔用你正在用的瀏覽器。
+    """
     options = Options()
     if headless:
         options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument(f"--window-size={window}")
+
+    if profile_dir:
+        profile_dir = Path(profile_dir)
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        options.add_argument(f"--user-data-dir={profile_dir.resolve()}")
+
     return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
 

@@ -85,10 +85,15 @@ def main() -> None:
                     help="表單載入完成的 CSS selector，例如 '#host'；不給就只等驗證消失")
     ap.add_argument("--wait", type=int, default=240,
                     help="等待人工通過驗證的上限秒數（預設 240）")
+    ap.add_argument("--profile", default=".chrome-profile",
+                    help="瀏覽器設定檔目錄，cookie 跨次保留；給空字串則用拋棄式設定檔")
     args = ap.parse_args()
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    driver = make_driver(headless=False)
+    profile = (REPO_ROOT / args.profile) if args.profile else None
+    if profile:
+        print(f"使用設定檔目錄：{profile}（cookie 會保留到下次）", flush=True)
+    driver = make_driver(headless=False, profile_dir=profile)
     try:
         driver.get(args.url)
         print(f"已開啟 {args.url}", flush=True)

@@ -39,7 +39,7 @@ def run_batch(ips: Sequence[str], protocol: str, cfg: ItdogConfig,
     """
     targets = build_targets(ips, protocol)
 
-    driver = make_driver(cfg.headless)
+    driver = make_driver(cfg.headless, profile_dir=cfg.user_data_dir)
     try:
         driver.get(cfg.batch_url)
         require_form(driver, FORM_READY, cfg.challenge_wait, cfg.batch_url, verbose)

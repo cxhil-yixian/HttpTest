@@ -10,7 +10,7 @@ config.yaml 放結構性常數（節點、欄位、等待秒數），
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import yaml
 from dotenv import load_dotenv
@@ -65,6 +65,7 @@ class ItdogConfig:
     test_wait_time: int
     headless: bool
     challenge_wait: int
+    user_data_dir: Optional[Path]   # None = 每次都用拋棄式設定檔
     nodes: Tuple[Node, ...]
 
     @property
@@ -159,6 +160,14 @@ class AppConfig:
     paths: Paths
 
 
+def _resolve_profile(value) -> Optional[Path]:
+    """設定檔目錄；相對路徑以專案根目錄為基準，留空代表用拋棄式設定檔。"""
+    if not value:
+        return None
+    path = Path(value)
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
 def load_config(project_dir) -> AppConfig:
     """載入 config.yaml + .env，組出指定專案的完整設定。
 
@@ -189,6 +198,7 @@ def load_config(project_dir) -> AppConfig:
         test_wait_time=int(itdog_raw.get("test_wait_time", 60)),
         headless=bool(itdog_raw.get("headless", False)),
         challenge_wait=int(itdog_raw.get("challenge_wait", 180)),
+        user_data_dir=_resolve_profile(itdog_raw.get("user_data_dir")),
         nodes=nodes,
     )
 

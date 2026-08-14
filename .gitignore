@@ -29,3 +29,6 @@ htmlcov/
 .idea/
 .vscode/
 .claude/settings.local.json
+
+# Selenium 專用的瀏覽器設定檔（cookie / session）
+.chrome-profile/

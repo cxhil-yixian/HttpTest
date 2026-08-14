@@ -29,6 +29,13 @@ itdog:
   # 腳本會開著瀏覽器等你點完、偵測到表單出現才繼續。
   challenge_wait: 180   # 等待人工通過驗證的上限秒數
 
+  # 專屬的瀏覽器設定檔目錄，cookie 與 session 會跨次保留。
+  # 不設的話每次都開全新的拋棄式設定檔，上次通過的驗證不會被記住，
+  # 每跑一次就得重驗一次。
+  # 注意：這是本專案專用的目錄，不是你平常那個 Chrome 設定檔——
+  # 不會互相干擾，也不需要先關掉 Chrome。
+  user_data_dir: ".chrome-profile"
+
   # 測試節點。順序 = Excel 欄位順序，改這裡即可增減節點。
   #   id    : ITDOG 網站的節點 ID（送進 select.node_select）
   #   name  : ITDOG 回傳的節點名稱，也是寫進 logs/*.txt 的名稱
