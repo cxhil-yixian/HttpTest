@@ -77,6 +77,10 @@ data:
 
 # ---------- GOOGLE 模組（Google Sheets 讀寫）----------
 google:
+  # 總開關。false 時 fetch / upload 兩個步驟一律跳過，不會連線 Google，
+  # 也不需要 service_account.json。測試階段先關著，要接回去再改成 true。
+  enabled: false
+
   # 讀取 IP 的欄位與起始列
   ip_column: "C"
   start_row: 4

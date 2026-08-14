@@ -124,6 +124,7 @@ class ReportLayout:
 
 @dataclass(frozen=True)
 class SheetsConfig:
+    enabled: bool           # false 時 fetch / upload 一律跳過，不連線 Google
     sheet_id: str
     worksheet_gid: int
     credentials_path: Path
@@ -219,6 +220,7 @@ def load_config(project_dir) -> AppConfig:
         creds_path = REPO_ROOT / creds_path
 
     sheets = SheetsConfig(
+        enabled=bool(google_raw.get("enabled", False)),
         sheet_id=sheet_id,
         worksheet_gid=int(gid) if gid else 0,
         credentials_path=creds_path,

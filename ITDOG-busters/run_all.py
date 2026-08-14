@@ -12,6 +12,9 @@
     python run_all.py test           # 只跑測試並產出 Excel
     python run_all.py upload         # 只回寫 Sheets
     python run_all.py test upload    # 跑指定的幾步
+
+fetch 與 upload 受 config.yaml 的 google.enabled 控制。關閉時（目前預設）
+不跑完整流程會自動跳過這兩步，只做 test；明確點名要跑則會直接報錯說明原因。
 """
 
 import argparse
@@ -21,7 +24,7 @@ from pathlib import Path
 PROJECT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_DIR.parent))  # 讓 busters 套件可被匯入
 
-from busters import data, google                    # noqa: E402
+from busters import data                            # noqa: E402
 from busters.config import AppConfig, load_config   # noqa: E402
 from busters.data.records import HTTP, HTTPS        # noqa: E402
 from busters.itdog import run_batch                 # noqa: E402
@@ -35,6 +38,8 @@ def banner(text: str) -> None:
 
 def step_fetch(cfg: AppConfig) -> None:
     """Google Sheets → data/CDN_IP_list.txt"""
+    from busters import google   # 延後匯入：關閉時連 gspread 都不必載入
+
     worksheet = google.open_worksheet(cfg.sheets)
     print(f"已連接工作表: {worksheet.title}")
 
@@ -79,6 +84,8 @@ def step_test(cfg: AppConfig) -> None:
 
 def step_upload(cfg: AppConfig) -> None:
     """Excel 報表 → Google Sheets"""
+    from busters import google   # 延後匯入：關閉時連 gspread 都不必載入
+
     http_grid, https_grid = data.load_result_grids(cfg.paths.excel_file, cfg.layout)
     print(f"讀取到 HTTP {len(http_grid)} 行、HTTPS {len(https_grid)} 行")
 
@@ -94,11 +101,15 @@ def step_upload(cfg: AppConfig) -> None:
             print(f"已寫入 {label} 資料到 {written}")
 
 
+# needs_google=True 的步驟受 config.yaml 的 google.enabled 控制
 STEPS = {
-    "fetch": ("1. 從 Google Sheets 讀取 IP", step_fetch),
-    "test": ("2. 執行 ITDOG 批量測試", step_test),
-    "upload": ("3. 上傳結果到 Google Sheets", step_upload),
+    "fetch": ("1. 從 Google Sheets 讀取 IP", step_fetch, True),
+    "test": ("2. 執行 ITDOG 批量測試", step_test, False),
+    "upload": ("3. 上傳結果到 Google Sheets", step_upload, True),
 }
+
+GOOGLE_OFF_HINT = ("Google Sheets 目前是關閉的"
+                   "（config.yaml 的 google.enabled: false）")
 
 
 def main() -> None:
@@ -109,11 +120,28 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    explicit = bool(args.steps)
     selected = args.steps or list(STEPS)
     cfg = load_config(PROJECT_DIR)
 
+    if not cfg.sheets.enabled:
+        blocked = [s for s in selected if STEPS[s][2]]
+        if blocked and explicit:
+            # 明確點名要跑的步驟就不要默默跳過，講清楚為什麼沒跑
+            parser.error(
+                f"{GOOGLE_OFF_HINT}，無法執行 {', '.join(blocked)}。\n"
+                f"要接回 Google Sheets 請把 google.enabled 改成 true。"
+            )
+        selected = [s for s in selected if not STEPS[s][2]]
+        if blocked:
+            print(f"\n※ {GOOGLE_OFF_HINT}，跳過：{', '.join(blocked)}")
+
+    if not selected:
+        print("沒有可執行的步驟")
+        return
+
     for name in selected:
-        title, func = STEPS[name]
+        title, func, _ = STEPS[name]
         banner(title)
         func(cfg)
 
